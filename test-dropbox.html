@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест Dropbox API</title>
+    <!-- Загружаем Dropbox SDK -->
+    <script src="https://unpkg.com/dropbox@10.10.0/dist/Dropbox-sdk.min.js"></script>
+</head>
+<body>
+    <h1>Тест Dropbox API</h1>
+    <div id="status">Проверка конфигурации...</div>
+    <button onclick="testAuth()">Тест авторизации</button>
+    <button onclick="testUpload()">Тест загрузки</button>
+    <button onclick="testList()">Тест списка файлов</button>
+    <div id="results"></div>
+
+    <script>
+        const clientId = '8nw2cgvlalf08um';
+        const redirectUri = 'http://localhost:3005/';
+        let dbx = null;
+        let accessToken = null;
+
+        function log(message) {
+            console.log(message);
+            document.getElementById('results').innerHTML += '<p>' + message + '</p>';
+        }
+
+        function logError(error) {
+            console.error(error);
+            document.getElementById('results').innerHTML += '<p style="color: red;">ОШИБКА: ' + error.message + '</p>';
+        }
+
+        // Проверка доступности Dropbox SDK
+        function checkDropboxSDK() {
+            log('Проверяем доступность Dropbox SDK...');
+            
+            // Проверяем различные способы доступа к Dropbox
+            if (typeof Dropbox !== 'undefined') {
+                log('Dropbox SDK загружен (глобальный объект)');
+                return Dropbox;
+            }
+            
+            if (typeof window.Dropbox !== 'undefined') {
+                log('Dropbox SDK загружен (window.Dropbox)');
+                return window.Dropbox;
+            }
+            
+            // Проверяем, есть ли Dropbox в require/module системе
+            if (typeof require !== 'undefined') {
+                try {
+                    const dropboxModule = require('dropbox');
+                    log('Dropbox SDK загружен через require');
+                    return dropboxModule.Dropbox || dropboxModule;
+                } catch (e) {
+                    log('Ошибка загрузки через require: ' + e.message);
+                }
+            }
+            
+            logError(new Error('Dropbox SDK не найден'));
+            return null;
+        }
+
+        // Создание экземпляра Dropbox с проверкой
+        function createDropboxInstance(options) {
+            const DropboxClass = checkDropboxSDK();
+            if (!DropboxClass) {
+                throw new Error('Dropbox SDK недоступен');
+            }
+            
+            try {
+                // Пробуем разные способы создания экземпляра
+                if (typeof DropboxClass === 'function') {
+                    log('Создаем экземпляр через new DropboxClass()');
+                    return new DropboxClass(options);
+                } else if (DropboxClass.Dropbox && typeof DropboxClass.Dropbox === 'function') {
+                    log('Создаем экземпляр через new DropboxClass.Dropbox()');
+                    return new DropboxClass.Dropbox(options);
+                } else {
+                    throw new Error('Не удалось создать экземпляр Dropbox');
+                }
+            } catch (error) {
+                logError(error);
+                throw error;
+            }
+        }
+
+        // Проверка конфигурации
+        function checkConfig() {
+            log('Проверяем конфигурацию...');
+            log('Client ID: ' + clientId);
+            log('Redirect URI: ' + redirectUri);
+            
+            if (!clientId || clientId === 'YOUR_DROPBOX_CLIENT_ID') {
+                logError(new Error('Client ID не настроен'));
+                return false;
+            }
+            
+            log('Конфигурация корректна');
+            return true;
+        }
+
+        // Тест авторизации
+        async function testAuth() {
+            try {
+                log('Начинаем тест авторизации...');
+                
+                if (!checkConfig()) return;
+
+                const DropboxClass = checkDropboxSDK();
+                if (!DropboxClass) return;
+
+                const dbxAuth = createDropboxInstance({ clientId: clientId });
+                const authUrl = await dbxAuth.auth.getAuthenticationUrl(
+                    redirectUri,
+                    undefined,
+                    'token'
+                );
+                
+                log('URL авторизации: ' + authUrl);
+                log('Откройте этот URL в браузере для авторизации');
+                
+                // Проверяем, есть ли уже токен в URL
+                const hash = window.location.hash.substring(1);
+                const params = new URLSearchParams(hash);
+                const token = params.get('access_token');
+                
+                if (token) {
+                    log('Найден токен в URL');
+                    accessToken = token;
+                    dbx = createDropboxInstance({ accessToken: accessToken });
+                    log('Dropbox клиент инициализирован');
+                    
+                    // Очищаем URL
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                } else {
+                    log('Токен не найден, нужно авторизоваться');
+                }
+                
+            } catch (error) {
+                logError(error);
+            }
+        }
+
+        // Тест загрузки файла
+        async function testUpload() {
+            try {
+                if (!dbx) {
+                    logError(new Error('Сначала нужно авторизоваться'));
+                    return;
+                }
+
+                log('Тестируем загрузку файла...');
+                
+                const testData = {
+                    test: true,
+                    timestamp: new Date().toISOString(),
+                    message: 'Тестовый файл'
+                };
+                
+                const jsonContent = JSON.stringify(testData, null, 2);
+                const fileName = 'test-file-' + Date.now() + '.json';
+                
+                log('Загружаем файл: ' + fileName);
+                
+                const response = await dbx.filesUpload({
+                    path: '/' + fileName,
+                    contents: jsonContent,
+                    mode: 'overwrite'
+                });
+                
+                log('Файл успешно загружен: ' + JSON.stringify(response.result, null, 2));
+                
+            } catch (error) {
+                logError(error);
+            }
+        }
+
+        // Тест получения списка файлов
+        async function testList() {
+            try {
+                if (!dbx) {
+                    logError(new Error('Сначала нужно авторизоваться'));
+                    return;
+                }
+
+                log('Тестируем получение списка файлов...');
+                
+                const response = await dbx.filesListFolder({ path: '' });
+                log('Получен ответ от API: ' + JSON.stringify(response.result, null, 2));
+                
+                const files = response.result.entries.filter(
+                    entry => entry['.tag'] === 'file' && entry.name.endsWith('.json')
+                );
+                
+                log('Найдено JSON файлов: ' + files.length);
+                files.forEach(file => {
+                    log('- ' + file.name + ' (' + file.size + ' байт)');
+                });
+                
+            } catch (error) {
+                logError(error);
+            }
+        }
+
+        // Инициализация
+        window.onload = function() {
+            log('Страница загружена, проверяем SDK...');
+            checkDropboxSDK();
+            checkConfig();
+            
+            // Проверяем токен в URL
+            const hash = window.location.hash.substring(1);
+            const params = new URLSearchParams(hash);
+            const token = params.get('access_token');
+            
+            if (token) {
+                log('Найден токен в URL, инициализируем клиент...');
+                try {
+                    accessToken = token;
+                    dbx = createDropboxInstance({ accessToken: accessToken });
+                    document.getElementById('status').textContent = 'Авторизован';
+                } catch (error) {
+                    logError(error);
+                    document.getElementById('status').textContent = 'Ошибка инициализации';
+                }
+            } else {
+                document.getElementById('status').textContent = 'Не авторизован';
+            }
+        };
+    </script>
+</body>
+</html> 
