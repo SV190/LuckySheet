@@ -5,6 +5,14 @@ const user = ref(null)
 const isAuthenticated = ref(false)
 const isLoading = ref(false)
 
+// Определяем базовый URL API в зависимости от окружения
+const getApiBaseUrl = () => {
+  if (import.meta.env.DEV) {
+    return 'http://localhost:8888/.netlify/functions/api'
+  }
+  return '/.netlify/functions/api'
+}
+
 export function useAuth() {
   const router = useRouter()
 
@@ -33,7 +41,7 @@ export function useAuth() {
     isLoading.value = true
     
     try {
-      const response = await fetch('http://localhost:3001/api/login', {
+      const response = await fetch(`${getApiBaseUrl()}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -114,7 +122,7 @@ export function useAuth() {
     if (!token) return false
     
     try {
-      const response = await fetch('http://localhost:3001/api/verify', {
+      const response = await fetch(`${getApiBaseUrl()}/verify`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

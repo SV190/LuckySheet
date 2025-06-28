@@ -10,6 +10,14 @@ export class DropboxStorageService {
     this.Dropbox = null; // Будет загружен динамически
   }
 
+  // Определяем базовый URL API в зависимости от окружения
+  getApiBaseUrl() {
+    if (import.meta.env.DEV) {
+      return 'http://localhost:8888/.netlify/functions/api'
+    }
+    return '/.netlify/functions/api'
+  }
+
   // Динамическая загрузка Dropbox SDK
   async loadDropboxSDK() {
     if (this.Dropbox) {
@@ -68,7 +76,7 @@ export class DropboxStorageService {
       // Отправляем code на сервер для обмена на refresh token
       try {
         const userToken = localStorage.getItem('user_token');
-        const response = await fetch('http://localhost:3001/api/dropbox/save-token', {
+        const response = await fetch(`${this.getApiBaseUrl()}/dropbox/save-token`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -92,7 +100,7 @@ export class DropboxStorageService {
   // Получить access token с сервера
   async getAccessTokenFromServer() {
     const userToken = localStorage.getItem('user_token');
-    const response = await fetch('http://localhost:3001/api/dropbox/exchange-token', {
+    const response = await fetch(`${this.getApiBaseUrl()}/dropbox/exchange-token`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${userToken}`

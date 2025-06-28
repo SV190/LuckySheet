@@ -234,7 +234,14 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 const { user, logout: authLogout } = useAuth()
 
-const API_URL = 'http://localhost:3001/api'
+// Определяем базовый URL API в зависимости от окружения
+const getApiBaseUrl = () => {
+  if (import.meta.env.DEV) {
+    return 'http://localhost:8888/.netlify/functions/api'
+  }
+  return '/.netlify/functions/api'
+}
+
 const users = ref([])
 const isLoading = ref(false)
 const createError = ref('')
@@ -249,7 +256,7 @@ const blockedUsers = computed(() => users.value.filter(u => u.is_blocked).length
 const fetchUsers = async () => {
   try {
     const token = localStorage.getItem('user_token')
-    const res = await fetch(`${API_URL}/users`, {
+    const res = await fetch(`${getApiBaseUrl()}/users`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     if (!res.ok) throw new Error('Ошибка получения пользователей')
@@ -270,7 +277,7 @@ const createUser = async () => {
   isLoading.value = true
   try {
     const token = localStorage.getItem('user_token')
-    const res = await fetch(`${API_URL}/users`, {
+    const res = await fetch(`${getApiBaseUrl()}/users`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -297,7 +304,7 @@ const toggleBlock = async (user) => {
   isLoading.value = true
   try {
     const token = localStorage.getItem('user_token')
-    await fetch(`${API_URL}/users/${user.id}/block`, {
+    await fetch(`${getApiBaseUrl()}/users/${user.id}/block`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
