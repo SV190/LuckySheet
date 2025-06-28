@@ -91,3 +91,5 @@ pids/
 
 # Local Netlify folder
 .netlify
+
+.vercel

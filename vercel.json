@@ -9,32 +9,18 @@
       }
     },
     {
-      "src": "netlify/functions/*.js",
+      "src": "api/*.js",
       "use": "@vercel/node"
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "/netlify/functions/$1.js"
+      "source": "/api/(.*)",
+      "destination": "/api/$1.js"
     },
     {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
-  ],
-  "functions": {
-    "netlify/functions/login.js": {
-      "maxDuration": 10
-    },
-    "netlify/functions/users.js": {
-      "maxDuration": 10
-    },
-    "netlify/functions/block-user.js": {
-      "maxDuration": 10
-    },
-    "netlify/functions/dropbox.js": {
-      "maxDuration": 10
-    }
-  }
+  ]
 } 
