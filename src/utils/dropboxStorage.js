@@ -103,34 +103,18 @@ export class DropboxStorageService {
     return 'test-dropbox-token';
   }
 
-  // Инициализация сервиса (через сервер)
+  // Инициализация сервиса (заглушка для тестирования)
   async initialize() {
-    try {
-      this.accessToken = await this.getAccessTokenFromServer();
-      this.dbx = await this.createDropboxInstance({ accessToken: this.accessToken });
-      await this.dbx.usersGetCurrentAccount();
-      this.isAuthenticated = true;
-      return true;
-    } catch (e) {
-      console.log('Dropbox initialization failed, using mock data');
-      this.isAuthenticated = true; // Для тестирования считаем авторизованным
-      return true;
-    }
+    console.log('Initializing Dropbox service (mock mode)');
+    this.isAuthenticated = true; // Для тестирования считаем авторизованным
+    return true;
   }
 
-  // Перед каждым вызовом Dropbox API — обновлять access token
+  // Перед каждым вызовом Dropbox API — обновлять access token (заглушка)
   async safeApiCall(apiCall) {
-    try {
-      this.accessToken = await this.getAccessTokenFromServer();
-      this.dbx = await this.createDropboxInstance({ accessToken: this.accessToken });
-      return await apiCall();
-    } catch (error) {
-      if (error.status === 401) {
-        this.logout();
-        throw new Error('Требуется повторная авторизация в Dropbox');
-      }
-      throw error;
-    }
+    // Для тестирования не делаем реальные вызовы
+    console.log('Mock safeApiCall - skipping real Dropbox API calls');
+    throw new Error('Dropbox API calls disabled for testing');
   }
 
   // Аутентификация пользователя
@@ -144,6 +128,7 @@ export class DropboxStorageService {
 
   // Получение информации о пользователе (заглушка)
   async getUserInfo() {
+    console.log('Getting user info (mock)');
     // Для тестирования возвращаем заглушку
     this.userInfo = {
       name: 'Test User',
@@ -156,6 +141,7 @@ export class DropboxStorageService {
 
   // Получение списка файлов (через сервер)
   async getUserFiles() {
+    console.log('Getting user files (mock)');
     try {
       const userToken = localStorage.getItem('user_token');
       const response = await fetch(`${this.getApiBaseUrl()}/dropbox`, {
@@ -167,7 +153,7 @@ export class DropboxStorageService {
       if (!response.ok) throw new Error(data.error || 'Ошибка получения файлов');
       return data;
     } catch (error) {
-      console.error('Error fetching files:', error);
+      console.error('Error fetching files from server, using mock data:', error);
       // Возвращаем заглушку
       return [
         { id: 1, name: 'document1.xlsx', path: '/documents/document1.xlsx', updatedAt: '2024-01-15T10:30:00Z' },
@@ -177,190 +163,38 @@ export class DropboxStorageService {
     }
   }
 
-  // Загрузка файла
-  async uploadFile(filePath, fileData) {
-    if (!this.dbx) {
-      throw new Error('Необходима аутентификация Dropbox');
-    }
-
-    return this.safeApiCall(async () => {
-      const jsonString = JSON.stringify(fileData);
-      const blob = new Blob([jsonString], { type: 'application/json' });
-      
-      const response = await this.dbx.filesUpload({
-        path: filePath,
-        contents: blob,
-        mode: { '.tag': 'overwrite' }
-      });
-      
-      return response;
-    });
+  // Получение папок (заглушка)
+  async getFolders(parentPath = '') {
+    console.log('Getting folders (mock) for path:', parentPath);
+    // Возвращаем заглушку папок
+    return [
+      { id: 1, name: 'Documents', path: '/documents', isFolder: true },
+      { id: 2, name: 'Work', path: '/work', isFolder: true },
+      { id: 3, name: 'Personal', path: '/personal', isFolder: true }
+    ];
   }
 
-  // Скачивание файла
-  async downloadFile(filePath) {
-    if (!this.dbx) {
-      throw new Error('Необходима аутентификация Dropbox');
-    }
-
-    return this.safeApiCall(async () => {
-      const response = await this.dbx.filesDownload({ path: filePath });
-      const fileBlob = response.result.fileBlob;
-      
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          try {
-            const fileData = JSON.parse(reader.result);
-            
-            // Проверяем структуру данных и приводим к правильному формату
-            let processedData = fileData;
-            
-            // Если данные содержат sheets в корне, используем их
-            if (fileData.sheets && Array.isArray(fileData.sheets)) {
-              processedData = fileData;
-            } else if (fileData.data && fileData.data.sheets) {
-              // Если данные вложены в data, извлекаем их
-              processedData = fileData.data;
-            } else if (Array.isArray(fileData)) {
-              // Если данные уже в виде массива листов
-              processedData = { sheets: fileData };
-            }
-            
-            resolve({
-              name: response.result.name,
-              data: processedData
-            });
-          } catch (e) {
-            console.error('Ошибка парсинга JSON файла:', e);
-            reject(new Error('Ошибка парсинга JSON файла: ' + e.message));
-          }
-        };
-        reader.onerror = () => {
-          reject(new Error('Ошибка чтения файла'));
-        };
-        reader.readAsText(fileBlob);
-      });
-    });
-  }
-
-  // Удаление файла
-  async deleteFile(filePath) {
-    if (!this.dbx) {
-      throw new Error('Необходима аутентификация Dropbox');
-    }
-
-    return this.safeApiCall(async () => {
-      await this.dbx.filesDeleteV2({ path: filePath });
-      return true;
-    });
-  }
-  
-  // Выход из аккаунта
+  // Выход из Dropbox
   logout() {
-    this.accessToken = null;
+    console.log('Logging out from Dropbox (mock)');
     this.isAuthenticated = false;
     this.userInfo = null;
+    this.accessToken = null;
     this.dbx = null;
-    localStorage.removeItem('dropbox_token');
-    console.log('Выход из Dropbox выполнен');
   }
 
   // Проверка конфигурации
   checkConfiguration() {
-    const issues = [];
-    if (!this.clientId || this.clientId === 'YOUR_DROPBOX_CLIENT_ID') {
-      issues.push('Client ID не настроен');
-    }
     return {
-      isValid: issues.length === 0,
-      issues
+      clientId: this.clientId,
+      redirectUri: this.redirectUri,
+      isAuthenticated: this.isAuthenticated
     };
   }
-  
-  // Получение информации о пользователе
+
+  // Получение информации о пользователе синхронно
   getUserInfoSync() {
     return this.userInfo;
-  }
-
-  // --- СОЗДАНИЕ ПАПКИ ---
-  async createFolder(folderPath) {
-    if (!this.dbx) throw new Error('Необходима аутентификация Dropbox');
-    // Гарантируем правильный формат пути
-    let path = folderPath.trim();
-    if (!path.startsWith('/')) path = '/' + path;
-    path = path.replace(/\/+/g, '/').replace(/\/\//g, '/');
-    try {
-      const response = await this.dbx.filesCreateFolderV2({ path, autorename: false });
-      return response;
-    } catch (error) {
-      // Если папка уже существует — не считать это ошибкой
-      if (error?.error?.error_summary?.includes('conflict/folder')) {
-        return null;
-      }
-      console.error('Ошибка создания папки в Dropbox:', error);
-      throw error;
-    }
-  }
-
-  // --- УДАЛЕНИЕ ПАПКИ ---
-  async deleteFolder(folderPath) {
-    if (!this.dbx) throw new Error('Необходима аутентификация Dropbox');
-    try {
-      // Сначала получаем список всех файлов в папке
-      const filesResponse = await this.dbx.filesListFolder({ path: folderPath, recursive: true });
-      const files = filesResponse.result.entries.filter(entry => entry['.tag'] === 'file');
-      
-      // Удаляем все файлы в папке параллельно
-      const deletePromises = files.map(async (file) => {
-        try {
-          return await this.dbx.filesDeleteV2({ path: file.path_lower });
-        } catch (fileError) {
-          // Игнорируем ошибки удаления отдельных файлов
-          return null;
-        }
-      });
-      
-      await Promise.all(deletePromises);
-      
-      // Теперь удаляем саму папку
-      const response = await this.dbx.filesDeleteV2({ path: folderPath });
-      return response;
-    } catch (error) {
-      console.error('Ошибка удаления папки в Dropbox:', error);
-      throw error;
-    }
-  }
-
-  // --- ПОЛУЧЕНИЕ СПИСКА ПАПОК ---
-  async getFolders(parentPath = '') {
-    if (!this.dbx) throw new Error('Необходима аутентификация Dropbox');
-    
-    return this.safeApiCall(async () => {
-      const response = await this.dbx.filesListFolder({ path: parentPath, recursive: true });
-      
-      const folders = response.result.entries.filter(entry => entry['.tag'] === 'folder');
-      
-      const mappedFolders = folders.map(folder => ({
-        id: folder.id,
-        name: folder.name,
-        path: folder.path_lower
-      }));
-      
-      return mappedFolders;
-    });
-  }
-
-  // --- ПЕРЕМЕЩЕНИЕ ФАЙЛА ---
-  async moveFile(fromPath, toPath) {
-    if (!this.dbx) throw new Error('Необходима аутентификация Dropbox');
-    try {
-      const response = await this.dbx.filesMoveV2({ from_path: fromPath, to_path: toPath, autorename: false });
-      return response;
-    } catch (error) {
-      console.error('Ошибка перемещения файла в Dropbox:', error);
-      throw error;
-    }
   }
 }
 

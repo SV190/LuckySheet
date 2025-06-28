@@ -1,4 +1,10 @@
 exports.handler = async function(event, context) {
+  console.log('Login function called:', {
+    method: event.httpMethod,
+    path: event.path,
+    headers: event.headers
+  });
+
   // Настройка CORS
   const headers = {
     'Content-Type': 'application/json',
@@ -9,6 +15,7 @@ exports.handler = async function(event, context) {
 
   // Обработка preflight запросов
   if (event.httpMethod === 'OPTIONS') {
+    console.log('Handling OPTIONS request');
     return {
       statusCode: 200,
       headers,
@@ -22,10 +29,11 @@ exports.handler = async function(event, context) {
       const body = JSON.parse(event.body || '{}');
       const { username, password } = body;
 
-      console.log('Login attempt:', { username, password });
+      console.log('Login attempt:', { username, password: password ? '***' : 'undefined' });
 
       // Простая проверка
       if (username === 'admin' && password === 'admin') {
+        console.log('Login successful for admin');
         return {
           statusCode: 200,
           headers,
@@ -39,6 +47,7 @@ exports.handler = async function(event, context) {
           })
         };
       } else {
+        console.log('Login failed - invalid credentials');
         return {
           statusCode: 403,
           headers,
@@ -56,6 +65,7 @@ exports.handler = async function(event, context) {
   }
 
   // Для других методов
+  console.log('Unsupported method:', event.httpMethod);
   return {
     statusCode: 405,
     headers,
