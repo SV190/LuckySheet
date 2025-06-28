@@ -1,0 +1,40 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    },
+    {
+      "src": "netlify/functions/*.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/netlify/functions/$1.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ],
+  "functions": {
+    "netlify/functions/login.js": {
+      "maxDuration": 10
+    },
+    "netlify/functions/users.js": {
+      "maxDuration": 10
+    },
+    "netlify/functions/block-user.js": {
+      "maxDuration": 10
+    },
+    "netlify/functions/dropbox.js": {
+      "maxDuration": 10
+    }
+  }
+} 

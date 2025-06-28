@@ -19,7 +19,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "netlify:dev": "netlify dev",
-    "netlify:build": "npm run build && netlify build"
+    "netlify:build": "npm run build && netlify build",
+    "vercel-build": "npm run build"
   },
   "dependencies": {
     "dropbox": "^10.34.0",

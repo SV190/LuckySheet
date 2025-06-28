@@ -13,9 +13,9 @@ export class DropboxStorageService {
   // Определяем базовый URL API в зависимости от окружения
   getApiBaseUrl() {
     if (import.meta.env.DEV) {
-      return 'http://localhost:8888/.netlify/functions'
+      return 'http://localhost:3000/api'
     }
-    return '/.netlify/functions'
+    return '/api'
   }
 
   // Динамическая загрузка Dropbox SDK
