@@ -1,11 +1,11 @@
-import express from 'express';
-import cors from 'cors';
-import sqlite3 from 'sqlite3';
-import { open } from 'sqlite';
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
-import fetch from 'node-fetch';
-import serverless from 'serverless-http';
+const express = require('express');
+const cors = require('cors');
+const sqlite3 = require('sqlite3');
+const { open } = require('sqlite');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const fetch = require('node-fetch');
+const serverless = require('serverless-http');
 
 const app = express();
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecret';
@@ -113,20 +113,25 @@ function adminMiddleware(req, res, next) {
 
 // Вход пользователя
 app.post('/login', async (req, res) => {
-  const { username, password } = req.body;
-  const user = await db.get('SELECT * FROM users WHERE username = ?', username);
-  if (!user || user.is_blocked) return res.status(403).json({ error: 'Нет доступа' });
-  const valid = await bcrypt.compare(password, user.password);
-  if (!valid) return res.status(403).json({ error: 'Неверный логин или пароль' });
-  const token = jwt.sign({ id: user.id, username: user.username, is_admin: !!user.is_admin }, JWT_SECRET);
-  res.json({ 
-    token, 
-    user: {
-      id: user.id,
-      username: user.username,
-      is_admin: !!user.is_admin
-    }
-  });
+  try {
+    const { username, password } = req.body;
+    const user = await db.get('SELECT * FROM users WHERE username = ?', username);
+    if (!user || user.is_blocked) return res.status(403).json({ error: 'Нет доступа' });
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) return res.status(403).json({ error: 'Неверный логин или пароль' });
+    const token = jwt.sign({ id: user.id, username: user.username, is_admin: !!user.is_admin }, JWT_SECRET);
+    res.json({ 
+      token, 
+      user: {
+        id: user.id,
+        username: user.username,
+        is_admin: !!user.is_admin
+      }
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Ошибка входа' });
+  }
 });
 
 // Проверка токена
@@ -277,4 +282,4 @@ app.all('*', (req, res) => {
 });
 
 // Экспортируем функцию для Netlify
-export const handler = serverless(app); 
+module.exports.handler = serverless(app); 

@@ -1,10 +1,15 @@
-exports.handler = async function(event, context) {
-  return {
-    statusCode: 200,
-    body: JSON.stringify({
-      message: "Hello from Netlify Functions!",
-      timestamp: new Date().toISOString(),
-      event: event
-    })
-  };
-}; 
+const express = require('express');
+const serverless = require('serverless-http');
+
+const app = express();
+
+app.get('/', (req, res) => {
+  res.json({
+    message: "Hello from Netlify Functions!",
+    timestamp: new Date().toISOString(),
+    method: req.method,
+    path: req.path
+  });
+});
+
+module.exports.handler = serverless(app); 
