@@ -10,59 +10,80 @@ import serverless from 'serverless-http';
 const app = express();
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecret';
 
-// Настройка CORS для Netlify
+// Настройка CORS для Netlify - разрешаем все домены Netlify
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://your-app-name.netlify.app', 'https://your-app-name.netlify.app/']
-    : ['http://localhost:3000', 'http://localhost:5173'],
+  origin: function (origin, callback) {
+    // Разрешаем запросы без origin (например, из мобильных приложений)
+    if (!origin) return callback(null, true);
+    
+    // Разрешаем все домены Netlify
+    if (origin.includes('netlify.app') || 
+        origin.includes('localhost') || 
+        origin.includes('127.0.0.1')) {
+      return callback(null, true);
+    }
+    
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true
 }));
 
 app.use(express.json());
 
+// Добавляем обработчик ошибок
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
 // Инициализация базы данных
 let db;
 async function initDB() {
-  if (!db) {
-    db = await open({
-      filename: '/tmp/users.db', // Используем временную папку для Netlify
-      driver: sqlite3.Database
-    });
-    
-    // Создание таблицы пользователей
-    await db.run(`CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE,
-      password TEXT,
-      is_admin INTEGER DEFAULT 0,
-      is_blocked INTEGER DEFAULT 0,
-      dropbox_refresh_token TEXT
-    )`);
-    
-    // Добавляем поле dropbox_refresh_token, если его нет
-    try {
-      await db.run('ALTER TABLE users ADD COLUMN dropbox_refresh_token TEXT');
-    } catch (e) {
-      // Игнорируем ошибку, если поле уже существует
+  try {
+    if (!db) {
+      db = await open({
+        filename: '/tmp/users.db', // Используем временную папку для Netlify
+        driver: sqlite3.Database
+      });
+      
+      // Создание таблицы пользователей
+      await db.run(`CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE,
+        password TEXT,
+        is_admin INTEGER DEFAULT 0,
+        is_blocked INTEGER DEFAULT 0,
+        dropbox_refresh_token TEXT
+      )`);
+      
+      // Добавляем поле dropbox_refresh_token, если его нет
+      try {
+        await db.run('ALTER TABLE users ADD COLUMN dropbox_refresh_token TEXT');
+      } catch (e) {
+        // Игнорируем ошибку, если поле уже существует
+      }
+      
+      // Создание первого админа, если нет
+      const admin = await db.get('SELECT * FROM users WHERE is_admin = 1');
+      if (!admin) {
+        const hash = await bcrypt.hash('admin', 10);
+        await db.run('INSERT INTO users (username, password, is_admin) VALUES (?, ?, 1)', ['admin', hash]);
+        console.log('Создан админ: admin / admin');
+      }
+      
+      // Создание тестового пользователя, если нет
+      const testUser = await db.get('SELECT * FROM users WHERE username = ?', 'user');
+      if (!testUser) {
+        const hash = await bcrypt.hash('user', 10);
+        await db.run('INSERT INTO users (username, password, is_admin) VALUES (?, ?, 0)', ['user', hash]);
+        console.log('Создан пользователь: user / user');
+      }
     }
-    
-    // Создание первого админа, если нет
-    const admin = await db.get('SELECT * FROM users WHERE is_admin = 1');
-    if (!admin) {
-      const hash = await bcrypt.hash('admin', 10);
-      await db.run('INSERT INTO users (username, password, is_admin) VALUES (?, ?, 1)', ['admin', hash]);
-      console.log('Создан админ: admin / admin');
-    }
-    
-    // Создание тестового пользователя, если нет
-    const testUser = await db.get('SELECT * FROM users WHERE username = ?', 'user');
-    if (!testUser) {
-      const hash = await bcrypt.hash('user', 10);
-      await db.run('INSERT INTO users (username, password, is_admin) VALUES (?, ?, 0)', ['user', hash]);
-      console.log('Создан пользователь: user / user');
-    }
+    return db;
+  } catch (error) {
+    console.error('Database initialization error:', error);
+    throw error;
   }
-  return db;
 }
 
 // Middleware для инициализации БД
@@ -239,6 +260,15 @@ app.post('/dropbox/exchange-token', authMiddleware, async (req, res) => {
     console.error('Exchange token error:', e);
     res.status(500).json({ error: 'Ошибка обмена токена' });
   }
+});
+
+// Простой тестовый эндпоинт для проверки работы функции
+app.get('/test', (req, res) => {
+  res.json({ 
+    message: 'API работает!', 
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
 });
 
 // Обработчик для всех остальных маршрутов
