@@ -237,9 +237,9 @@ const { user, logout: authLogout } = useAuth()
 // Определяем базовый URL API в зависимости от окружения
 const getApiBaseUrl = () => {
   if (import.meta.env.DEV) {
-    return 'http://localhost:8888/.netlify/functions/api'
+    return 'http://localhost:8888/.netlify/functions'
   }
-  return '/.netlify/functions/api'
+  return '/.netlify/functions'
 }
 
 const users = ref([])
@@ -262,6 +262,7 @@ const fetchUsers = async () => {
     if (!res.ok) throw new Error('Ошибка получения пользователей')
     users.value = await res.json()
   } catch (e) {
+    console.error('Error fetching users:', e)
     users.value = []
   }
 }
@@ -304,13 +305,16 @@ const toggleBlock = async (user) => {
   isLoading.value = true
   try {
     const token = localStorage.getItem('user_token')
-    await fetch(`${getApiBaseUrl()}/users/${user.id}/block`, {
+    await fetch(`${getApiBaseUrl()}/block-user`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`
       },
-      body: JSON.stringify({ block: !user.is_blocked })
+      body: JSON.stringify({ 
+        userId: user.id,
+        block: !user.is_blocked 
+      })
     })
     await fetchUsers()
   } catch (e) {
