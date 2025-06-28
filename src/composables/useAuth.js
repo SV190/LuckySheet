@@ -41,7 +41,11 @@ export function useAuth() {
     isLoading.value = true
     
     try {
-      const response = await fetch(`${getApiBaseUrl()}/login`, {
+      const apiUrl = `${getApiBaseUrl()}/login`;
+      console.log('Attempting login to:', apiUrl);
+      console.log('Login data:', { username, password: '***' });
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -49,7 +53,11 @@ export function useAuth() {
         body: JSON.stringify({ username, password })
       })
       
+      console.log('Login response status:', response.status);
+      console.log('Login response headers:', response.headers);
+      
       const data = await response.json()
+      console.log('Login response data:', data);
       
       if (!response.ok) {
         throw new Error(data.error || 'Ошибка входа')
@@ -70,12 +78,15 @@ export function useAuth() {
       }
       isAuthenticated.value = true
       
+      console.log('Login successful, user:', user.value);
+      
       // Перенаправляем на главную страницу
       router.push('/')
       
       return data.user
       
     } catch (error) {
+      console.error('Login error:', error);
       throw error
     } finally {
       isLoading.value = false
