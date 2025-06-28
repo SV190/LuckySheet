@@ -8,9 +8,9 @@ const isLoading = ref(false)
 // Определяем базовый URL API в зависимости от окружения
 const getApiBaseUrl = () => {
   if (import.meta.env.DEV) {
-    return 'http://localhost:8888/.netlify/functions/api'
+    return 'http://localhost:8888/.netlify/functions'
   }
-  return '/.netlify/functions/api'
+  return '/.netlify/functions'
 }
 
 export function useAuth() {
@@ -122,7 +122,7 @@ export function useAuth() {
     if (!token) return false
     
     try {
-      const response = await fetch(`${getApiBaseUrl()}/verify`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/verify`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
