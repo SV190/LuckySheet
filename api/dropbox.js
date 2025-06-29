@@ -223,15 +223,4 @@ export default async function handler(req, res) {
   } else {
     res.status(405).json({ error: 'Метод не поддерживается' });
   }
-}
-
-// Получить URL для авторизации Dropbox
-app.get('/api/dropbox/auth-url', (req, res) => {
-  try {
-    const authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${DROPBOX_CONFIG.clientId}&response_type=code&redirect_uri=${encodeURIComponent(DROPBOX_CONFIG.redirectUri)}`;
-    res.json({ authUrl });
-  } catch (error) {
-    console.error('Error generating auth URL:', error);
-    res.status(500).json({ error: 'Failed to generate auth URL' });
-  }
-}); 
+} 
