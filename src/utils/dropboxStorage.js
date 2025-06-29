@@ -97,24 +97,41 @@ export class DropboxStorageService {
     return false;
   }
 
-  // Получить access token с сервера (заглушка для тестирования)
-  async getAccessTokenFromServer() {
-    // Для тестирования возвращаем заглушку
-    return 'test-dropbox-token';
-  }
-
-  // Инициализация сервиса (заглушка для тестирования)
+  // Инициализация сервиса
   async initialize() {
-    console.log('Initializing Dropbox service (mock mode)');
-    this.isAuthenticated = true; // Для тестирования считаем авторизованным
-    return true;
-  }
+    try {
+      console.log('Initializing Dropbox service...');
+      // Проверяем, есть ли сохраненные токены
+      const userToken = localStorage.getItem('user_token');
+      if (!userToken) {
+        console.log('No user token found');
+        return false;
+      }
 
-  // Перед каждым вызовом Dropbox API — обновлять access token (заглушка)
-  async safeApiCall(apiCall) {
-    // Для тестирования не делаем реальные вызовы
-    console.log('Mock safeApiCall - skipping real Dropbox API calls');
-    throw new Error('Dropbox API calls disabled for testing');
+      // Проверяем подключение к Dropbox через сервер
+      try {
+        const response = await fetch(`${this.getApiBaseUrl()}/dropbox`, {
+          headers: {
+            'Authorization': `Bearer ${userToken}`
+          }
+        });
+        
+        if (response.ok) {
+          this.isAuthenticated = true;
+          console.log('Dropbox connection verified');
+          return true;
+        } else {
+          console.log('Dropbox not connected');
+          return false;
+        }
+      } catch (error) {
+        console.log('Error checking Dropbox connection:', error);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error initializing Dropbox service:', error);
+      return false;
+    }
   }
 
   // Аутентификация пользователя
@@ -126,22 +143,31 @@ export class DropboxStorageService {
     window.location.href = authUrl;
   }
 
-  // Получение информации о пользователе (заглушка)
+  // Получение информации о пользователе
   async getUserInfo() {
-    console.log('Getting user info (mock)');
-    // Для тестирования возвращаем заглушку
-    this.userInfo = {
-      name: 'Test User',
-      email: 'test@example.com',
-      spaceUsed: 1024 * 1024 * 100, // 100 MB
-      spaceTotal: 1024 * 1024 * 1024 * 2 // 2 GB
-    };
-    return this.userInfo;
+    try {
+      const userToken = localStorage.getItem('user_token');
+      const response = await fetch(`${this.getApiBaseUrl()}/dropbox/user-info`, {
+        headers: {
+          'Authorization': `Bearer ${userToken}`
+        }
+      });
+      
+      if (response.ok) {
+        const userInfo = await response.json();
+        this.userInfo = userInfo;
+        return userInfo;
+      } else {
+        throw new Error('Failed to get user info');
+      }
+    } catch (error) {
+      console.error('Error getting user info:', error);
+      throw error;
+    }
   }
 
   // Получение списка файлов (через сервер)
   async getUserFiles() {
-    console.log('Getting user files (mock)');
     try {
       const userToken = localStorage.getItem('user_token');
       const response = await fetch(`${this.getApiBaseUrl()}/dropbox`, {
@@ -149,34 +175,152 @@ export class DropboxStorageService {
           'Authorization': `Bearer ${userToken}`
         }
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Ошибка получения файлов');
-      return data;
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Ошибка получения файлов');
+      }
+      
+      const files = await response.json();
+      return files;
     } catch (error) {
-      console.error('Error fetching files from server, using mock data:', error);
-      // Возвращаем заглушку
-      return [
-        { id: 1, name: 'document1.xlsx', path: '/documents/document1.xlsx', updatedAt: '2024-01-15T10:30:00Z' },
-        { id: 2, name: 'document2.xlsx', path: '/documents/document2.xlsx', updatedAt: '2024-01-14T15:45:00Z' },
-        { id: 3, name: 'folder1', path: '/documents/folder1', updatedAt: '2024-01-13T09:20:00Z', isFolder: true }
-      ];
+      console.error('Error fetching files:', error);
+      throw error;
     }
   }
 
-  // Получение папок (заглушка)
+  // Получение папок
   async getFolders(parentPath = '') {
-    console.log('Getting folders (mock) for path:', parentPath);
-    // Возвращаем заглушку папок
-    return [
-      { id: 1, name: 'Documents', path: '/documents', isFolder: true },
-      { id: 2, name: 'Work', path: '/work', isFolder: true },
-      { id: 3, name: 'Personal', path: '/personal', isFolder: true }
-    ];
+    try {
+      const userToken = localStorage.getItem('user_token');
+      const response = await fetch(`${this.getApiBaseUrl()}/dropbox/folders?path=${encodeURIComponent(parentPath)}`, {
+        headers: {
+          'Authorization': `Bearer ${userToken}`
+        }
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Ошибка получения папок');
+      }
+      
+      const folders = await response.json();
+      return folders.filter(f => f.isFolder);
+    } catch (error) {
+      console.error('Error fetching folders:', error);
+      throw error;
+    }
+  }
+
+  // Загрузка файла
+  async downloadFile(filePath) {
+    try {
+      const userToken = localStorage.getItem('user_token');
+      const response = await fetch(`${this.getApiBaseUrl()}/dropbox/download`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userToken}`
+        },
+        body: JSON.stringify({ path: filePath })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Ошибка загрузки файла');
+      }
+      
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      throw error;
+    }
+  }
+
+  // Загрузка файла на Dropbox
+  async uploadFile(filePath, fileData) {
+    try {
+      const userToken = localStorage.getItem('user_token');
+      const response = await fetch(`${this.getApiBaseUrl()}/dropbox/upload`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userToken}`
+        },
+        body: JSON.stringify({ 
+          path: filePath, 
+          data: fileData 
+        })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Ошибка загрузки файла');
+      }
+      
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      throw error;
+    }
+  }
+
+  // Удаление файла
+  async deleteFile(filePath) {
+    try {
+      const userToken = localStorage.getItem('user_token');
+      const response = await fetch(`${this.getApiBaseUrl()}/dropbox/delete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userToken}`
+        },
+        body: JSON.stringify({ path: filePath })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Ошибка удаления файла');
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error deleting file:', error);
+      throw error;
+    }
+  }
+
+  // Создание папки
+  async createFolder(folderPath) {
+    try {
+      const userToken = localStorage.getItem('user_token');
+      const response = await fetch(`${this.getApiBaseUrl()}/dropbox/create-folder`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userToken}`
+        },
+        body: JSON.stringify({ path: folderPath })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Ошибка создания папки');
+      }
+      
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('Error creating folder:', error);
+      throw error;
+    }
   }
 
   // Выход из Dropbox
   logout() {
-    console.log('Logging out from Dropbox (mock)');
+    console.log('Logging out from Dropbox');
     this.isAuthenticated = false;
     this.userInfo = null;
     this.accessToken = null;

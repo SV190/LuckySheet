@@ -1,4 +1,10 @@
-export default function handler(req, res) {
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { getUserByUsername } from './database.js';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+export default async function handler(req, res) {
   console.log('=== VERCEL LOGIN FUNCTION CALLED ===');
   console.log('Method:', req.method);
   console.log('Headers:', req.headers);
@@ -29,23 +35,59 @@ export default function handler(req, res) {
         bodyKeys: Object.keys(req.body || {})
       });
 
-      // Простая проверка
-      if (username === 'admin' && password === 'admin') {
-        console.log('Login successful for admin');
-        const response = {
-          token: 'test-token-123',
-          user: {
-            id: 1,
-            username: 'admin',
-            is_admin: true
-          }
-        };
-        console.log('Sending response:', response);
-        res.status(200).json(response);
-      } else {
-        console.log('Login failed - invalid credentials');
-        res.status(401).json({ error: 'Неверный логин или пароль' });
+      // Проверяем наличие обязательных полей
+      if (!username || !password) {
+        return res.status(400).json({ error: 'Логин и пароль обязательны' });
       }
+
+      // Получаем пользователя из базы данных
+      const user = await getUserByUsername(username);
+      
+      if (!user) {
+        console.log('Login failed - user not found');
+        return res.status(401).json({ error: 'Неверный логин или пароль' });
+      }
+
+      // Проверяем, не заблокирован ли пользователь
+      if (user.is_blocked) {
+        console.log('Login failed - user is blocked');
+        return res.status(403).json({ error: 'Пользователь заблокирован' });
+      }
+
+      // Проверяем пароль
+      const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+      
+      if (!isPasswordValid) {
+        console.log('Login failed - invalid password');
+        return res.status(401).json({ error: 'Неверный логин или пароль' });
+      }
+
+      // Создаем JWT токен
+      const token = jwt.sign(
+        { 
+          userId: user.id, 
+          username: user.username, 
+          isAdmin: user.is_admin 
+        },
+        JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+
+      console.log('Login successful for user:', user.username);
+      
+      const response = {
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          is_admin: user.is_admin === 1
+        }
+      };
+      
+      console.log('Sending response:', { ...response, token: '***' });
+      res.status(200).json(response);
+      
     } catch (error) {
       console.error('Login error:', error);
       res.status(500).json({ error: 'Ошибка сервера: ' + error.message });

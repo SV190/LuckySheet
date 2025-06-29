@@ -1,4 +1,24 @@
-export default function handler(req, res) {
+import jwt from 'jsonwebtoken';
+import { updateUserBlockStatus, getUserById } from './database.js';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+// Middleware для проверки JWT токена
+function verifyToken(req) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    return jwt.verify(token, JWT_SECRET);
+  } catch (error) {
+    return null;
+  }
+}
+
+export default async function handler(req, res) {
   console.log('=== VERCEL BLOCK-USER FUNCTION CALLED ===');
   console.log('Method:', req.method);
   console.log('Body:', req.body);
@@ -18,14 +38,14 @@ export default function handler(req, res) {
   if (req.method === 'POST') {
     try {
       // Проверяем авторизацию
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      const user = verifyToken(req);
+      if (!user) {
         return res.status(401).json({ error: 'Требуется авторизация' });
       }
 
-      const token = authHeader.split(' ')[1];
-      if (token !== 'test-token-123') {
-        return res.status(401).json({ error: 'Неверный токен' });
+      // Проверяем права администратора
+      if (!user.isAdmin) {
+        return res.status(403).json({ error: 'Доступ запрещен. Требуются права администратора' });
       }
 
       const { userId, action } = req.body;
@@ -37,6 +57,25 @@ export default function handler(req, res) {
       if (!['block', 'unblock'].includes(action)) {
         return res.status(400).json({ error: 'Действие должно быть block или unblock' });
       }
+
+      // Проверяем, что пользователь существует
+      const targetUser = await getUserById(userId);
+      if (!targetUser) {
+        return res.status(404).json({ error: 'Пользователь не найден' });
+      }
+
+      // Нельзя блокировать самого себя
+      if (user.userId === userId) {
+        return res.status(400).json({ error: 'Нельзя блокировать самого себя' });
+      }
+
+      // Нельзя блокировать других администраторов
+      if (targetUser.is_admin && user.userId !== targetUser.id) {
+        return res.status(403).json({ error: 'Нельзя блокировать других администраторов' });
+      }
+
+      const isBlocked = action === 'block';
+      await updateUserBlockStatus(userId, isBlocked);
 
       console.log(`User ${userId} ${action}ed successfully`);
       
