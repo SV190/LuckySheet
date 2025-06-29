@@ -6,6 +6,12 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 const DROPBOX_CLIENT_ID = process.env.DROPBOX_CLIENT_ID;
 const DROPBOX_CLIENT_SECRET = process.env.DROPBOX_CLIENT_SECRET;
 
+const DROPBOX_CONFIG = {
+  clientId: '8nw2cgvlalf08um',
+  clientSecret: process.env.DROPBOX_CLIENT_SECRET,
+  redirectUri: 'https://lucky-sheet-main-b40ldk4yu-shahroms-projects-7403ea57.vercel.app/'
+};
+
 // Middleware для проверки JWT токена
 function verifyToken(req) {
   const authHeader = req.headers.authorization;
@@ -29,11 +35,11 @@ async function exchangeCodeForToken(code, redirectUri) {
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: new URLSearchParams({
-      code,
+      code: code,
       grant_type: 'authorization_code',
-      client_id: DROPBOX_CLIENT_ID,
-      client_secret: DROPBOX_CLIENT_SECRET,
-      redirect_uri: redirectUri,
+      client_id: DROPBOX_CONFIG.clientId,
+      client_secret: DROPBOX_CONFIG.clientSecret,
+      redirect_uri: DROPBOX_CONFIG.redirectUri
     }),
   });
 
@@ -217,4 +223,15 @@ export default async function handler(req, res) {
   } else {
     res.status(405).json({ error: 'Метод не поддерживается' });
   }
-} 
+}
+
+// Получить URL для авторизации Dropbox
+app.get('/api/dropbox/auth-url', (req, res) => {
+  try {
+    const authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${DROPBOX_CONFIG.clientId}&response_type=code&redirect_uri=${encodeURIComponent(DROPBOX_CONFIG.redirectUri)}`;
+    res.json({ authUrl });
+  } catch (error) {
+    console.error('Error generating auth URL:', error);
+    res.status(500).json({ error: 'Failed to generate auth URL' });
+  }
+}); 
