@@ -9,7 +9,7 @@ const DROPBOX_CLIENT_SECRET = process.env.DROPBOX_CLIENT_SECRET;
 const DROPBOX_CONFIG = {
   clientId: '8nw2cgvlalf08um',
   clientSecret: process.env.DROPBOX_CLIENT_SECRET,
-  redirectUri: 'https://lucky-sheet-main-b40ldk4yu-shahroms-projects-7403ea57.vercel.app/'
+  redirectUri: 'https://lucky-sheet-main-n1whci05i-shahroms-projects-7403ea57.vercel.app/'
 };
 
 // Middleware для проверки JWT токена
