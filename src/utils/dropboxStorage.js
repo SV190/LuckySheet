@@ -2,7 +2,7 @@
 export class DropboxStorageService {
   constructor() {
     this.clientId = '8nw2cgvlalf08um'; // Dropbox App Key
-    this.redirectUri = 'https://lucky-sheet-main-n1whci05i-shahroms-projects-7403ea57.vercel.app/';
+    this.redirectUri = 'https://lucky-sheet-main-2h3am9ski-shahroms-projects-7403ea57.vercel.app/';
     this.dbx = null;
     this.accessToken = null;
     this.isAuthenticated = false;
