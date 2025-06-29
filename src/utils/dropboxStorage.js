@@ -15,7 +15,8 @@ export class DropboxStorageService {
     if (import.meta.env.DEV) {
       return 'http://localhost:3000/api'
     }
-    return '/api'
+    // В production используем текущий домен
+    return window.location.origin + '/api'
   }
 
   // Динамическая загрузка Dropbox SDK
