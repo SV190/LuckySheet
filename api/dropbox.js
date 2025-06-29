@@ -39,7 +39,7 @@ async function exchangeCodeForToken(code, redirectUri) {
       grant_type: 'authorization_code',
       client_id: DROPBOX_CONFIG.clientId,
       client_secret: DROPBOX_CONFIG.clientSecret,
-      redirect_uri: DROPBOX_CONFIG.redirectUri
+      redirect_uri: redirectUri || DROPBOX_CONFIG.redirectUri
     }),
   });
 
